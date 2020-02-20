@@ -158,7 +158,10 @@ namespace ConfigPersist
             cp.OutputAssembly = dllPath;
             cp.GenerateInMemory = false;
             cp.CompilerOptions = "/optimize";
-            cp.CompilerOptions = "/keyfile:..\\..\\Keyfile\\key.snk";
+
+            // Make sure keyfile is named key.snk 
+            // TODO make it so keyfile is just file that contains .snk inside Keyfile folder
+            cp.CompilerOptions = File.Exists("..\\..\\Keyfile\\key.snk") ? "/keyfile:..\\..\\Keyfile\\key.snk" : $"/keyfile:{Environment.CurrentDirectory}\\Keyfile\\key.snk";
             cp.IncludeDebugInformation = false;
             CompilerResults cr = objCodeCompiler.CompileAssemblyFromSource(cp, malCSharp);
             var types = cr.CompiledAssembly.GetExportedTypes();
