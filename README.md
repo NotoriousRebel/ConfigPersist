@@ -6,7 +6,7 @@ onto Global Assembly Cache.
 ### Note
 
 For this technique to work you will need to generate a 
-keyfile you can use a tool called [sn](https://docs.microsoft.com/en-us/dotnet/framework/tools/sn-exe-strong-name-tool) which stands for strong name.
+keyfile, you can use a tool called [sn](https://docs.microsoft.com/en-us/dotnet/framework/tools/sn-exe-strong-name-tool) which stands for strong name.
 Place that keyfile and make sure it is called **key.snk** inside the Keyfile 
 directory or you can place key.snk and the executable in the same directory.
 <br/>
