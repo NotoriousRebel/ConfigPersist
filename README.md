@@ -10,5 +10,5 @@ keyfile, you can use a tool called [sn](https://docs.microsoft.com/en-us/dotnet/
 Place that keyfile and make sure it is called **key.snk** inside the Keyfile 
 directory or you can place key.snk and the executable in the same directory.
 <br/>
-To learn more about this technique read this post.
 
+To learn more about this technique feel free to read this [post](https://secbytes.net/Configuring-our-Machine-for-Persistence).
