@@ -12,3 +12,5 @@ directory or you can place key.snk and the executable in the same directory.
 <br/>
 
 To learn more about this technique feel free to read this [post](https://secbytes.net/Configuring-our-Machine-for-Persistence).
+
+For a more updated version of this technique visit this [PR for SharpSploit](https://github.com/cobbr/SharpSploit/pull/46).
